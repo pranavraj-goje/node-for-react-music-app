@@ -1,19 +1,156 @@
-// // backend/server.js
-// // import readXlsxFile from 'read-excel-file'
-
-let allData
-
 const readXlsxFile = require('read-excel-file/node')
-// const express = require('express');
-// const bodyParser = require('body-parser');
+// // backend/server.js
+// import readXlsxFile from 'read-excel-file'
+const requests = require('./request')
 
-// File path.
-readXlsxFile('menu.xlsx').then((rows) => {
-    allData = rows
-    console.log(rows)
-    // `rows` is an array of rows
-    // each row being an array of cells.
+
+
+
+// const express = require("express");
+// const cors = require("cors");
+// const app = express();
+
+// app.use(cors());
+// app.use(express.json());
+
+// app.get("/message", (req, res) => {
+//   res.json({ message: allData });
+// });
+
+// app.listen(8000, () => {
+//   console.log(`Server is running on port 8000.`);
+// });
+
+
+let localActivityNames
+
+async function getUserActivity() {
+    await requests.getActivityNames('/userDataRecords').then((activityNames) => {
+        localActivityNames = activityNames;
+        // console.log(activityNames);
+        // console.log(localActivityNames);
+    });
+}
+
+let clusterNumber = -1
+
+let activityAndClusterMap = new Map()
+let activityAndMoodMap = new Map()
+let activityAndSongsMap = new Map()
+
+let clusterMoodMap = new Map()
+clusterMoodMap.set('Sad', 0);
+clusterMoodMap.set('Calm', 1);
+clusterMoodMap.set('Happy', 2);
+clusterMoodMap.set('Energetic', 3);
+
+
+async function getSongsFromExcel(key, value) {
+
+    let moodSong = new Set();
+
+    await readXlsxFile(`${value}.xlsx`).then((rows) => {
+
+
+
+        while (moodSong.size < 20) {
+
+            const randomIndex = Math.floor(Math.random() * 500);
+            moodSong.add(rows[randomIndex][14]);
+
+        }
+
+    })
+
+    activityAndSongsMap.set(key, Array.from(moodSong));
+    
+
+}
+
+getUserActivity().then(async () => {
+    let allData
+
+    // const express = require('express');
+    // const bodyParser = require('body-parser');
+
+    // File path.
+    await readXlsxFile('activityData.xlsx').then((rows) => {
+        allData = rows
+        // console.log(allData)
+        // console.log(allData.length)
+        // `rows` is an array of rows
+        // each row being an array of cells.
+    })
+
+    for (let index = 0; index < localActivityNames.length; index++) {
+        let temp = localActivityNames[index];
+        let flag = 1;
+        for (let i = 0; i < allData.length; i++) {
+            if (temp == allData[i][1]) {
+                activityAndClusterMap.set(temp, allData[i][3]);
+                flag = 0;
+            }
+        }
+        if (flag == 1) {
+            activityAndClusterMap.set(temp, 2);
+        }
+    }
+
+    console.log(activityAndClusterMap);
+    console.log(clusterMoodMap);
+
+
+    for (let [key, value] of activityAndClusterMap.entries()) {
+        for (let [key2, value2] of clusterMoodMap.entries()) {
+            if (value == value2) {
+                activityAndMoodMap.set(key, key2);
+            }
+        }
+    }
+
+    console.log(activityAndMoodMap);
+
+    for (let [key, value] of activityAndMoodMap.entries()) {
+        await getSongsFromExcel(key, value);
+        console.log(activityAndSongsMap);
+        console.log("Done")
+    }
+    console.log('Last')
 })
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 // // Set up the express app
 // const app = express();
@@ -39,19 +176,3 @@ readXlsxFile('menu.xlsx').then((rows) => {
 // }())
 
 // app.listen(API_PORT, () => console.log(`LISTENING ON PORT ${API_PORT}`));
-
-
-const express = require("express");
-const cors = require("cors");
-const app = express();
-
-app.use(cors());
-app.use(express.json());
-
-app.get("/message", (req, res) => {
-  res.json({ message: allData });
-});
-
-app.listen(8000, () => {
-  console.log(`Server is running on port 8000.`);
-});
