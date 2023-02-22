@@ -1,25 +1,12 @@
+
+
 const readXlsxFile = require('read-excel-file/node')
 // // backend/server.js
 // import readXlsxFile from 'read-excel-file'
 const requests = require('./request')
-
-
-
-
-// const express = require("express");
-// const cors = require("cors");
-// const app = express();
-
-// app.use(cors());
-// app.use(express.json());
-
-// app.get("/message", (req, res) => {
-//   res.json({ message: allData });
-// });
-
-// app.listen(8000, () => {
-//   console.log(`Server is running on port 8000.`);
-// });
+const express = require("express");
+const cors = require("cors");
+const app = express();
 
 
 let localActivityNames
@@ -37,6 +24,7 @@ let clusterNumber = -1
 let activityAndClusterMap = new Map()
 let activityAndMoodMap = new Map()
 let activityAndSongsMap = new Map()
+let jsonDataActivityAndSongs;
 
 let clusterMoodMap = new Map()
 clusterMoodMap.set('Sad', 0);
@@ -49,74 +37,102 @@ async function getSongsFromExcel(key, value) {
 
     let moodSong = new Set();
 
-    await readXlsxFile(`${value}.xlsx`).then((rows) => {
-
-
+    await readXlsxFile(`${value}.xlsx`, { Range: 'A1:A50' }).then((rows) => {
 
         while (moodSong.size < 20) {
 
             const randomIndex = Math.floor(Math.random() * 500);
-            moodSong.add(rows[randomIndex][14]);
+            moodSong.add(rows[randomIndex][0]);
 
         }
 
     })
 
     activityAndSongsMap.set(key, Array.from(moodSong));
-    
+    // moodSong = null;
+    // global.gc();
 
 }
 
-getUserActivity().then(async () => {
-    let allData
+async function generateActivitySongsMap() {
+    await getUserActivity().then(async () => {
+        let allData
 
-    // const express = require('express');
-    // const bodyParser = require('body-parser');
+        // const express = require('express');
+        // const bodyParser = require('body-parser');
 
-    // File path.
-    await readXlsxFile('activityData.xlsx').then((rows) => {
-        allData = rows
-        // console.log(allData)
-        // console.log(allData.length)
-        // `rows` is an array of rows
-        // each row being an array of cells.
+        // File path.
+        await readXlsxFile('activityData.xlsx').then((rows) => {
+            allData = rows
+            // console.log(allData)
+            // console.log(allData.length)
+            // `rows` is an array of rows
+            // each row being an array of cells.
+        })
+
+        for (let index = 0; index < localActivityNames.length; index++) {
+            let temp = localActivityNames[index];
+            let flag = 1;
+            for (let i = 0; i < allData.length; i++) {
+                if (temp == allData[i][1]) {
+                    activityAndClusterMap.set(temp, allData[i][3]);
+                    flag = 0;
+                }
+            }
+            if (flag == 1) {
+                activityAndClusterMap.set(temp, 2);
+            }
+        }
+
+        console.log(activityAndClusterMap);
+        console.log(clusterMoodMap);
+
+
+        for (let [key, value] of activityAndClusterMap.entries()) {
+            for (let [key2, value2] of clusterMoodMap.entries()) {
+                if (value == value2) {
+                    activityAndMoodMap.set(key, key2);
+                }
+            }
+        }
+        //deleting map to free up memory of heap
+        // activityAndClusterMap = null;
+        // clusterMoodMap = null;
+        // global.gc();
+
+        console.log(activityAndMoodMap);
+
+        for (let [key, value] of activityAndMoodMap.entries()) {
+            await getSongsFromExcel(key, value);
+            console.log(activityAndSongsMap);
+            console.log("Done")
+        }
+        console.log('Last')
+        // activityAndMoodMap = null;
+        // global.gc();
+
+        const myObj = Object.fromEntries(activityAndSongsMap);
+        jsonDataActivityAndSongs = JSON.stringify(myObj);
+        console.log(jsonDataActivityAndSongs)
+        // activityAndSongsMap = null;
+        // global.gc();
+
     })
+}
 
-    for (let index = 0; index < localActivityNames.length; index++) {
-        let temp = localActivityNames[index];
-        let flag = 1;
-        for (let i = 0; i < allData.length; i++) {
-            if (temp == allData[i][1]) {
-                activityAndClusterMap.set(temp, allData[i][3]);
-                flag = 0;
-            }
-        }
-        if (flag == 1) {
-            activityAndClusterMap.set(temp, 2);
-        }
-    }
-
-    console.log(activityAndClusterMap);
-    console.log(clusterMoodMap);
+app.use(cors());
+app.use(express.json());
 
 
-    for (let [key, value] of activityAndClusterMap.entries()) {
-        for (let [key2, value2] of clusterMoodMap.entries()) {
-            if (value == value2) {
-                activityAndMoodMap.set(key, key2);
-            }
-        }
-    }
+app.get("/message", async (req, res) => {
+    await generateActivitySongsMap()
+    console.log('Inside App . Get A Life')
+    res.send(jsonDataActivityAndSongs);
+});
 
-    console.log(activityAndMoodMap);
-
-    for (let [key, value] of activityAndMoodMap.entries()) {
-        await getSongsFromExcel(key, value);
-        console.log(activityAndSongsMap);
-        console.log("Done")
-    }
-    console.log('Last')
-})
+app.listen(8000, () => {
+    console.log(`Server is running on port 8000.`);
+});
 
 
 
